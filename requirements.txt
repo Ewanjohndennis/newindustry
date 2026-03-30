@@ -1,0 +1,11 @@
+# ── Industry Intelligence Dashboard ──
+streamlit
+fastmcp
+python-dotenv
+google-search-results
+plotly
+pandas
+fpdf2
+
+# ── Core dependencies ──
+httpx
