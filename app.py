@@ -546,41 +546,40 @@ if st.session_state.get("ok"):
                 else:
                     st.info("No products found.")
                 st.markdown("</div>", unsafe_allow_html=True)
-            st.markdown("### 🧠 Brand Score Breakdown")
-            xai_tabs = st.tabs([f"🔍 {b}" for b in brands])
+        st.markdown("### 🧠 Brand Score Breakdown")
+        xai_tabs = st.tabs([f"🔍 {b}" for b in brands])
 
-            for i, b in enumerate(brands):
-                with xai_tabs[i]:
-                    breakdown = b_scores[b].get("breakdown", {})
+        for i, b in enumerate(brands):
+            with xai_tabs[i]:
+                breakdown = b_scores[b].get("breakdown", {})
 
-                    st.markdown(f"#### {b} Score: {b_scores[b]['total_score']} ({b_scores[b]['grade']})")
+                st.markdown(f"#### {b} Score: {b_scores[b]['total_score']} ({b_scores[b]['grade']})")
 
-                    # Show components
-                    for comp, data in breakdown.items():
-                        score = data.get("score", 0)
-                        reason = data.get("reason", "")
+                for comp, data in breakdown.items():
+                    score = data.get("score", 0)
+                    reason = data.get("reason", "")
 
-                        st.markdown(f"""
-                        <div class="glass">
-                            <b>{comp.title()}</b> — {score}
-                            <br><span style="color:#8892b0;">{reason}</span>
-                        </div>
-                        """, unsafe_allow_html=True)
+                    st.markdown(f"""
+                    <div class="glass">
+                        <b>{comp.title()}</b> — {score}
+                        <br><span style="color:#8892b0;">{reason}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
 
-                    # 🔥 Add LLM explanation on top of math
-                    st.markdown("##### 🤖 AI Explanation")
+                st.markdown("##### 🤖 AI Explanation")
 
-                    prompt = f"""
-                    Explain why {b} received this score.
+                prompt = f"""
+                Explain why {b} received this score.
 
-                    Breakdown:
-                    {breakdown}
+                Breakdown:
+                {breakdown}
 
-                    Give a simple explanation in 3-4 sentences. No code, no tables, just plain English. Be direct and business focused.
-                    """
+                Give a simple explanation in 3-4 sentences.
+                """
 
-                    ai_explain = llm_call(prompt)
-                    st.markdown(ai_explain)
+                # ✅ MUST BE INSIDE
+                ai_explain = llm_call(prompt)
+                st.markdown(ai_explain)
 
     # ══════════════════════════════════════════════════════════════════════
     #  TAB 2 — Market Trends

@@ -20,10 +20,16 @@ import streamlit as st
 from fastmcp import FastMCP
 from serpapi import GoogleSearch
 
+def get_secret(key):
+    try:
+        return st.secrets[key]
+    except Exception:
+        return os.getenv(key)
+
 # ── Load env (resolve relative to this file so subprocess spawning works) ────
 _env_path = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(_env_path)
-SERP_KEY = os.getenv("SERP_API_KEY")
+SERP_KEY = get_secret("SERP_API_KEY")
 
 # ── FastMCP instance ────────────────────────────────────────────────────────
 mcp = FastMCP("Industry Intelligence Server")
