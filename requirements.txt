@@ -9,6 +9,7 @@ fpdf2
 langchain 
 huggingface_hub
 langchain-huggingface
+groq
 
 # ── Core dependencies ──
 httpx

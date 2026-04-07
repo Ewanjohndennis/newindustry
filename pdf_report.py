@@ -156,7 +156,7 @@ def generate_pdf_report(
     pdf.ln(4)
 
     # 4 ── AI Market Analysis ─────────────────────────────────────────────
-    pdf.section("4 · AI Market Analysis")
+    pdf.section("4 - AI Market Analysis")
     pdf.set_font("Helvetica", "B", 10)
     pdf.set_text_color(25, 25, 80)
     pdf.cell(0, 7, "Market Summary", new_x="LMARGIN", new_y="NEXT")
@@ -177,7 +177,7 @@ def generate_pdf_report(
 
     # 5 ── Intelligence Scores ────────────────────────────────────────────
     pdf.add_page()
-    pdf.section("5 · Brand Intelligence Scores")
+    pdf.section("5 - Brand Intelligence Scores")
     sw = [32, 22, 18, 22, 22, 22, 22, 30]
     pdf.table_header(sw, ["Brand", "Score", "Grade", "Rating", "Price", "Trend", "Value", "Verdict"])
     for b, sc in brand_scores.items():
@@ -195,7 +195,7 @@ def generate_pdf_report(
     pdf.ln(4)
 
     # 6 ── Predictions ────────────────────────────────────────────────────
-    pdf.section("6 · Market Predictions")
+    pdf.section("6 - Market Predictions")
     if predictions:
         pw = [40, 30, 40, 40, 40]
         pdf.table_header(pw, ["Brand", "Pred Score", "Outlook", "Intel Score", "Trend %"])
@@ -213,7 +213,7 @@ def generate_pdf_report(
     pdf.ln(4)
 
     # 7 ── Smart Alerts ───────────────────────────────────────────────────
-    pdf.section("7 · Smart Insight Alerts")
+    pdf.section("7 - Smart Insight Alerts")
     if alerts:
         for a in alerts:
             pdf.set_font("Helvetica", "B", 9)

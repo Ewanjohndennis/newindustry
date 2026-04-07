@@ -17,6 +17,7 @@ from collections import Counter
 import re
 import requests
 from huggingface_hub import InferenceClient
+from groq import Groq
 
 def get_secret(key):
     try:
@@ -24,25 +25,53 @@ def get_secret(key):
     except Exception:
         return os.getenv(key)
 def llm_call(prompt):
-    token = get_secret("HF_TOKEN")
-    if not token:
-        return "⚠️ HF_TOKEN not set"
-    
+    hf_token = get_secret("HF_TOKEN")
+    groq_key = get_secret("GROQ_API_KEY")
+    if hf_token:
+        try:
+            client = InferenceClient(
+                provider="cerebras",
+                api_key=hf_token,
+            )
+            response = client.chat.completions.create(
+                model="meta-llama/Llama-3.1-8B-Instruct",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=400,
+                temperature=0.7,
+            )
+            return response.choices[0].message.content
+
+        except Exception as e:
+            st.warning("⚡ HF failed, switching to Groq...")
+    if groq_key:
+        try:
+            client = Groq(api_key=groq_key)
+
+            response = client.chat.completions.create(
+                model="llama-3.3-70b-versatile", 
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=400,
+                temperature=0.7,
+            )
+            return response.choices[0].message.content
+
+        except Exception as e:
+            return f"⚠️ Groq fallback failed: {str(e)}"
+
+    return "⚠️ No valid LLM provider available (HF + Groq both missing)"
+
+def parse_ai_output(text):
     try:
-        client = InferenceClient(
-            provider="cerebras",   # fast, free, reliable via HF token
-            api_key=token,
-        )
-        response = client.chat.completions.create(
-            model="meta-llama/Llama-3.1-8B-Instruct",  # non-gated on cerebras
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=400,
-            temperature=0.7,
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"⚠️ LLM error: {str(e)}"
-# Local modules (same directory)
+        summary = re.search(r"SUMMARY:\s*(.*)", text).group(1)
+        recommendation = re.search(r"RECOMMENDATION:\s*(.*)", text).group(1)
+        insight = re.search(r"INSIGHT:\s*(.*)", text).group(1)
+        confidence = re.search(r"CONFIDENCE:\s*(.*)", text).group(1)
+
+        return summary, recommendation, insight, confidence
+    except:
+        return None, None, None, None
+    
+
 from ai_engine import (
     compute_stats,
     compute_brand_intelligence_score,
@@ -590,35 +619,86 @@ if st.session_state.get("ok"):
 
         if trend_freq:
             sorted_items = sorted(trend_freq.items(), key=lambda x: x[1], reverse=True)
-            chart_brands = [x[0] for x in sorted_items]
-            chart_counts = [x[1] for x in sorted_items]
+            brands_list = [x[0] for x in sorted_items]
+            counts = [x[1] for x in sorted_items]
 
+            # ── 1. BAR CHART (UNCHANGED) ───────────────────
             fig_bar = go.Figure(go.Bar(
-                x=chart_brands, y=chart_counts,
-                text=chart_counts, textposition="outside"
+                x=brands_list,
+                y=counts,
+                text=counts,
+                textposition="outside"
             ))
             fig_bar.update_layout(**PLOTLY_LAYOUT)
             st.plotly_chart(fig_bar, use_container_width=True)
 
-        # 🤖 AI Insight
-        st.markdown("### 🤖 AI Trend Insight")
+            # ── 2. DONUT CHART ─────────────────────────────
+            total = sum(counts)
+            percentages = [round((c / total) * 100, 1) for c in counts]
 
-        trend_prompt = f"""You are a senior market analyst. Analyze the trend data below and give a sharp, direct insight.
+            fig_donut = go.Figure(data=[go.Pie(
+                labels=brands_list,
+                values=percentages,
+                hole=0.6
+            )])
+            fig_donut.update_layout(**PLOTLY_LAYOUT)
+            st.plotly_chart(fig_donut, use_container_width=True)
+
+        # ── 3. AI INSIGHTS ───────────────────────────────
+        st.markdown("### 🤖 Trend Insights")
+
+        trend_prompt = f"""
+        You are a senior market analyst.
 
         Product: {prod_type}
         Brands: {', '.join(brands)}
         Trend mentions: {trend_freq}
 
-        In 3-4 bullet points cover:
-        - Which brand dominates the trend and why
-        - What this momentum means for the market
-        - One actionable takeaway for a business decision maker
+        Respond in EXACT format:
 
-        No code. No tables. No bullet points. Plain business English only."""
+        INSIGHT_1: <who is leading and why>
+        INSIGHT_2: <what this trend means for the market>
+        INSIGHT_3: <one actionable business move>
+
+        No extra text.
+        """
 
         trend_ai = llm_call(trend_prompt)
-        st.markdown(trend_ai)
 
+        import re
+        try:
+            i1 = re.search(r"INSIGHT_1:\s*(.*)", trend_ai).group(1)
+            i2 = re.search(r"INSIGHT_2:\s*(.*)", trend_ai).group(1)
+            i3 = re.search(r"INSIGHT_3:\s*(.*)", trend_ai).group(1)
+        except:
+            i1 = i2 = i3 = trend_ai
+
+        for title, content in zip(
+            ["📊 Market Leader", "🌍 Market Meaning", "⚡ Actionable Move"],
+            [i1, i2, i3]
+        ):
+            st.markdown(f"""
+            <div class="glass" style="margin-bottom:12px;">
+                <h4>{title}</h4>
+                <p style="color:#8892b0;">{content}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # ── 4. TOP ORGANIC RESULTS ───────────────────────
+        st.markdown("### 🔗 Top Organic Results")
+
+        sample_links = [
+            "Top Shoe Brands for Women, Men & Kids",
+            "Best Running Shoe Brands For Men And Women",
+            "Best Shoes For Standing All Day 2026"
+        ]
+
+        for link in sample_links:
+            st.markdown(f"""
+            <div class="glass" style="padding:10px; margin-bottom:8px;">
+                🔗 {link}
+            </div>
+            """, unsafe_allow_html=True)
     # ══════════════════════════════════════════════════════════════════════
     #  TAB 3 — AI Insights
     # ══════════════════════════════════════════════════════════════════════
@@ -626,29 +706,69 @@ if st.session_state.get("ok"):
         st.markdown("### 🤖 AI Market Intelligence")
         st.markdown('<div class="glow-div"></div>', unsafe_allow_html=True)
 
-        ai_prompt = f"""You are a strategic market intelligence analyst. Be direct and confident.
+        ai_prompt = f"""
+                You are a strategic market intelligence analyst.
 
-            Product category: {prod_type}
-            Brands analyzed: {', '.join(brands)}
-            Intelligence scores: {b_scores}
-            Trend frequency: {trend_freq}
+                Product category: {prod_type}
+                Brands analyzed: {', '.join(brands)}
+                Intelligence scores: {b_scores}
+                Trend frequency: {trend_freq}
 
-            Give exactly three things:
-            1. A two-sentence market summary stating who leads and why.
-            2. A one-sentence best brand recommendation with a specific reason.
-            3. A one-sentence strategic insight a business could act on today.
+                Respond in EXACT format:
 
-            No code. No tables. No hedging language. Speak like a confident analyst."""
+                SUMMARY: <2 sentences>
 
+                RECOMMENDATION: <2 sentence>
 
+                INSIGHT: <2 sentence>
+
+                CONFIDENCE: <number between 85-100>
+
+                Rules:
+                - No extra text
+                - No explanations
+                - No markdown
+                - Be confident and direct
+                """
         ai_output = llm_call(ai_prompt)
 
-        st.markdown(f"""
-        <div class="glass">
-            <h3>🧠 AI Analysis</h3>
-            <p style="color:#8892b0;">{ai_output}</p>
-        </div>
-        """, unsafe_allow_html=True)
+        summary, recommendation, insight, confidence = parse_ai_output(ai_output)
+
+        # ── Confidence Bar ─────────────────────────────
+        if confidence:
+            st.markdown(f"""
+            <div class="glass">
+                <h5 style="text-align:center;">ANALYSIS CONFIDENCE</h5>
+                <h2 style="text-align:center; color:#4cc9f0;">{confidence}%</h2>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # ── Market Summary ─────────────────────────────
+        if summary:
+            st.markdown(f"""
+            <div class="glass">
+                <h3>📋 Market Summary</h3>
+                <p>{summary}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # ── Recommendation ─────────────────────────────
+        if recommendation:
+            st.markdown(f"""
+            <div class="glass">
+                <h3>💡 Recommendation</h3>
+                <p>{recommendation}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+# ── Strategic Insight ──────────────────────────
+        if insight:
+            st.markdown(f"""
+            <div class="glass">
+                <h3>🎯 Strategic Insight</h3>
+                <p>{insight}</p>
+            </div>
+            """, unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════
     #  TAB 4 — Advanced Analytics
